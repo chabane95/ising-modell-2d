@@ -1,58 +1,81 @@
 # Ising-Modell in zwei Dimensionen
 
-Wie entsteht aus einer Wechselwirkung zwischen nächsten Nachbarn eine makroskopische Magnetisierung? Auf dem Quadratgitter lässt sich das direkt beobachten. Unterhalb der kritischen Temperatur dominiert eine Spinrichtung. In ihrer Nähe bilden sich zusammenhängende Bereiche auf vielen Längenskalen.
+Unterhalb der kritischen Temperatur dominiert auf dem Quadratgitter eine Spinrichtung. In der Nähe von $T_c$ entstehen Domänen auf ganz unterschiedlichen Längenskalen. Mich interessiert hier, wie sich das in der Magnetisierung eines endlichen Gitters messen lässt.
 
-**[Browsersimulation herunterladen](https://github.com/chabane95/ising-modell-2d/raw/refs/heads/main/downloads/Ising-Modell-2D.zip)** · [Standbild](assets/domains.png) · [Messdaten](results/temperature_scan.csv)
+**[Simulation für den Browser herunterladen](https://github.com/chabane95/ising-modell-2d/raw/refs/heads/main/downloads/Ising-Modell-2D.zip)** · [Standbild](assets/domains.png) · [Messdaten](results/)
 
-ZIP entpacken und die HTML-Datei öffnen. Wer das Repository geklont hat, öffnet direkt [index.html](index.html). Die Simulation läuft offline. Beim Verschieben des Temperaturreglers entwickelt sich dasselbe Gitter weiter.
+ZIP entpacken und die HTML-Datei öffnen. Nach dem Klonen genügt ein Doppelklick auf [index.html](index.html). Der Temperaturregler wirkt auf das laufende Gitter.
 
-![Spin-Konfigurationen bei drei Temperaturen im zeitlichen Verlauf](assets/domains.gif)
+![Drei 64-mal-64-Gitter bei T = 1,8, am kritischen Punkt und bei T = 3,2](assets/domains.gif)
 
-Drei unabhängige Gitter mit je 64 × 64 Spins bei $T=1{,}8$, $T_c$ und $T=3{,}2$. Nach dem Einschwingen zeigt die Animation 60 lokale Metropolis-Sweeps. Das Standbild hält Sweep 30 fest.
+Von links nach rechts steigt die Temperatur. Alle drei Gitter haben $64^2$ Spins. Die Animation zeigt 60 lokale Metropolis-Sweeps nach dem Einschwingen.
 
-## Modell
+## Modell und Messung
 
-Auf einem periodischen $L\times L$-Gitter trägt jeder der $N=L^2$ Plätze einen Spin $s_i=\pm1$. Gleich ausgerichtete Nachbarn senken bei $J>0$ die Energie. Das homogene Feld $h$ koppelt an die Gesamtmagnetisierung $M=\sum_i s_i$. Die Magnetisierung pro Spin ist $m=M/N$.
+Jeder Platz trägt einen Spin $s_i=\pm1$. Die Ränder sind periodisch, jede Bindung zählt einmal.
 
 $$
-E=-J\sum_{\langle i,j\rangle}s_i s_j-hM
+E=-J\sum_{\langle i,j\rangle}s_i s_j-h\sum_i s_i,\qquad m=L^{-2}\sum_i s_i .
 $$
 
-Jede Bindung geht einmal in die Summe ein. Für die Abbildungen gilt $J=k_\mathrm{B}=1$ und $h=0$. Das unendliche Quadratgitter hat bei $T_c=2/\ln(1+\sqrt 2)\simeq2{,}26919$ einen kontinuierlichen Phasenübergang. Auf dem endlichen Gitter sind beide Vorzeichen von $M$ im Nullfeld gleich wahrscheinlich. Als Ordnungsparameter verwende ich deshalb $\langle|M|\rangle/N$. [Onsager (1944)](https://doi.org/10.1103/PhysRev.65.117) · [Yang (1952)](https://doi.org/10.1103/PhysRev.85.808)
+Für die Abbildungen gilt $J=k_\mathrm{B}=1$ und $h=0$. Damit liegt der kritische Punkt des unendlichen Quadratgitters bei $T_c=2/\ln(1+\sqrt{2})$. Auf einem endlichen Gitter sind beide Vorzeichen der Magnetisierung gleich wahrscheinlich. Ich messe deshalb den Betrag $\langle|m|\rangle$. [Onsager (1944)](https://doi.org/10.1103/PhysRev.65.117) · [Yang (1952)](https://doi.org/10.1103/PhysRev.85.808)
 
-## Numerische Umsetzung
+Im Browser besteht ein Metropolis-Sweep aus $L^2$ zufälligen Einzelspin-Versuchen. Für die Gleichgewichtsmessungen bei $T_c$ klappe ich mit dem Wolff-Verfahren ganze Cluster um und speichere nach jedem Update Energie und Magnetisierung. Die Zeitskala der Animation zählt Sweeps. [Metropolis et al. (1953)](https://doi.org/10.1063/1.1699114) · [Wolff (1989)](https://doi.org/10.1103/PhysRevLett.62.361)
 
-Im Browser läuft Metropolis. Ein Sweep besteht aus $N$ zufällig gewählten Einzelspin-Versuchen mit Zurücklegen. Für den Temperaturscan verwende ich im Nullfeld Wolff-Updates. Gleichgerichtete Nachbarn kommen mit Wahrscheinlichkeit $1-\exp(-2J/T)$ zum Cluster, der anschließend als Ganzes umklappt. Der Python-Code unterstützt auch Metropolis bei endlichem Feld. Ein Sweep zählt Monte-Carlo-Schritte und hat keine kalibrierte physikalische Dauer. [Metropolis et al. (1953)](https://doi.org/10.1063/1.1699114) · [Wolff (1989)](https://doi.org/10.1103/PhysRevLett.62.361)
+## Der magnetische Exponent
 
-Für jede Kombination aus drei Gittergrößen und zwölf Temperaturen laufen acht unabhängige Ketten. Je vier beginnen geordnet und zufällig. Nach 768 verworfenen Cluster-Updates folgen pro Kette 3072 Messungen, eine nach jedem Update. Die Fehlerbalken zeigen einen Standardfehler aus einem Jackknife über ganze Ketten. Die Tabelle enthält zusätzlich Autokorrelationszeiten für Energie und Magnetisierungsbetrag sowie den Energievergleich beider Startzustände. [Laufparameter](results/metadata.json)
+Am kritischen Punkt fällt $\langle|m|\rangle$ mit der Gitterlänge wie $L^{-x}$. Die Messung bestimmt $x=\beta/\nu$. Mit dem bekannten $\nu=1$ entspricht der Zahlenwert auch $\beta$. Der Hauptfit beginnt bei $L=16$ und reicht bis $L=256$. Mit $r=L/16$ lautet der Ansatz
 
-![Magnetisierung, Wärmekapazität, Fluktuation des Magnetisierungsbetrags und Binder-Kumulante für drei Gittergrößen](assets/thermodynamics.png)
+$$
+\langle |m|\rangle_L=A\,r^{-x}(1+b\,r^{-\omega}).
+$$
 
-Die Wärmekapazität pro Spin folgt aus $c_V=\mathrm{Var}(E)/(NT^2)$. Das Maximum von $\chi_{|M|}=\mathrm{Var}(|M|)/(NT)$ zeigt die stärksten Schwankungen des Ordnungsparameters. Die CSV enthält separat die lineare Suszeptibilität $\chi=\mathrm{Var}(M)/(NT)$. Die Binder-Kumulante $U_4=1-\langle M^4\rangle/(3\langle M^2\rangle^2)$ ist dimensionslos. Ihre Kurven treffen sich für diese Gittergrößen nahe $T_c$. [Vektorgrafik](assets/thermodynamics.svg)
+$A$, $b$ und $x$ sind frei. Für den Hauptfit habe ich vor der Auswertung $\omega=2$ festgelegt. Der Literaturwert $x=1/8$ geht nur als Vergleichslinie in die Fitdiagnostik ein. [Skalierung der Magnetisierungsverteilung](https://www2.icp.uni-stuttgart.de/~hilfer/publikationen/html/PRE-2003-68-046123/PRE-2003-68-046123.S2.html)
 
-## Zwei quantitative Prüfungen
+| Messung | Ausgewertete Größen | $\beta/\nu$ ± statistischer Standardfehler |
+| --- | --- | --- |
+| Früherer Zweipunktvergleich | 8 und 24 | 0,1191 ± 0,0051 |
+| Hauptfit | 9 Größen von 16 bis 256 | **0,12560 ± 0,00060** |
+| [Unabhängiger Kontrolllauf](results/repeat/critical_fit.json) | dieselben 9 Größen, doppelte Einlaufzeit | 0,12534 ± 0,00060 |
 
-- **Exakte Zustandssumme.** Auf dem $4\times4$-Gitter lassen sich alle 65 536 Zustände aufzählen. Bei $T=2{,}3$ ist $\langle E\rangle/N=-1{,}54131$. Metropolis liefert $-1{,}54289\pm0{,}00814$, Wolff $-1{,}53865\pm0{,}00514$. [Alle fünf Messgrößen](results/exact_check.csv)
-- **Skalierung am kritischen Punkt.** Aus dem Verhältnis der Magnetisierungsbeträge bei $L=8$ und $24$ folgt $\beta/\nu=0{,}1191\pm0{,}0051$. Der exakte Wert ist $1/8$. Der angegebene Fehler erfasst die Monte-Carlo-Streuung. Die endlichen Gittergrößen verursachen eine zusätzliche systematische Abweichung. [Skalierungsdiagramm](assets/scaling.png) · [SVG](assets/scaling.svg)
+![Magnetisierung entlang des Temperaturscans und bei der kritischen Temperatur, mit Fitresiduen](assets/scaling.png)
 
-## Selbst rechnen
+Links verwendet der Kurvenkollaps die bekannten Exponenten. Rechts stehen die unabhängigen Messungen direkt bei $T_c$. Die Quadrate bei $L=8$ und $12$ liegen außerhalb des Hauptfits. Darunter ist die Differenz zwischen Messung und Fit in Einheiten des jeweiligen Standardfehlers aufgetragen. [SVG](assets/scaling.svg)
 
-Python ab 3.10. Für eine einzelne Messung genügen NumPy und die Python-Standardbibliothek.
+Pro Größe laufen 24 unabhängige Ketten, zwölf aus einem geordneten und zwölf aus einem zufälligen Zustand. Nach 8192 verworfenen Cluster-Updates folgen je 32 768 Messungen. Für die Unsicherheit ziehe ich ganze Ketten innerhalb jeder Größe und Startart neu. Aus 4096 Bootstrap-Stichproben ergibt sich für $x$ ein 95-%-Intervall **von 0,12447 bis 0,12681**. Der Hauptfit ergibt $\chi^2=9{,}63$ bei sechs Freiheitsgraden. Der am Fitmodell zentrierte Bootstrap liefert $p=0{,}19$. [Replikamittel](results/critical_replicas.csv) · [Fit und Bootstrap](results/critical_fit.json)
 
-~~~
-python -m pip install -r requirements.txt
-python main.py --size 16 --temperature 2.3
-python main.py --size 16 --temperature 2.3 --field 0.1
-~~~
+![Lokale Exponenten aus Gitterverdopplungen und Abhängigkeit des Fits von der kleinsten Gittergröße](assets/critical_fit.png)
 
-Den veröffentlichten Scan, den exakten Vergleich und die Abbildungen erzeugen diese Befehle. Die Zahl der parallelen Prozesse lässt sich mit `--workers` anpassen.
+Bei festem $L_\min=16$ liefern eine reine Potenz und die Ansätze mit $\omega=1$, $7/4$ und $2$ Werte von 0,12541 bis 0,12593. Beginnt der Hauptansatz erst bei $L=48$, ergibt sich $0{,}12674\pm0{,}00161$. Für die Korrekturamplitude ergibt sich $b=-0{,}00059\pm0{,}00153$. Selbst ihr Vorzeichen ist damit offen. Die Fehlerbalken zeigen die Monte-Carlo-Streuung innerhalb des jeweiligen Modells. [SVG](assets/critical_fit.svg) · [Finite-Size-Korrekturen auf dem Torus](https://arxiv.org/abs/cond-mat/9904038)
 
-~~~
+## Kontrollen
+
+- **Startzustand.** Bei $L=96$ unterscheiden sich die Magnetisierungsbeträge aus geordneten und zufälligen Starts im ersten Lauf um 2,86 Standardfehler. Deshalb habe ich alle elf Größen mit neuem Seed und 16 384 verworfenen Updates wiederholt. Bei $L=96$ beträgt der Unterschied im Kontrolllauf −0,91 Standardfehler (zufälliger minus geordneter Start). [Erster Lauf](results/critical_diagnostics.csv) · [Kontrolllauf](results/repeat/critical_diagnostics.csv)
+- **Energie auf endlichen Gittern.** Bei $L=256$ messe ich $E/N=-1{,}416670\pm0{,}000084$. Die exakte Zustandssumme desselben Torus ergibt $-1{,}416645$. Über alle elf Größen beträgt die größte Abweichung 1,61 Standardfehler. Auf dem $4\times4$-Gitter lassen sich außerdem alle 65 536 Zustände einzeln auszählen. [Exakte Energien](results/critical_energy_check.csv) · [4×4-Vergleich](results/exact_check.csv) · [Ferdinand und Fisher (1969)](https://doi.org/10.1103/PhysRev.185.832) · [Salas (2001)](https://doi.org/10.1088/0305-4470/34/7/307)
+
+Der separate [Temperaturscan](assets/thermodynamics.png) zeigt für $L=8,16,24$ auch Wärmekapazität und Binder-Kumulante. Die dort gezeichnete Größe $\chi_{|M|}=\mathrm{Var}(|M|)/(L^2 T)$ beschreibt die Schwankung des Betrags. Die lineare Suszeptibilität aus dem vorzeichenbehafteten $M$ steht separat in der [Tabelle](results/temperature_scan.csv).
+
+## Nachrechnen
+
+Die [Zeitreihen](results/series/) enthalten die ganzzahligen Gesamtwerte `E` und `M` als NumPy-Arrays. Eine Zeile entspricht einer Replik, eine Spalte einem gespeicherten Cluster-Update. Die [Zeitreihen des Kontrolllaufs](results/repeat/series/) liegen separat. Mit Python ab 3.10 lassen sich die Daten prüfen, der Fit wiederholen und die Abbildungen neu zeichnen.
+
+~~~sh
 python -m pip install -r requirements-plot.txt
-python study.py --workers 4
-python validate.py
+python archive_series.py --verify
+python scaling_fit.py
 python plot_results.py
-python render_domains.py
 ~~~
 
-Die Physik- und Statistiktests laufen mit `python -m unittest discover -s tests`, die Tests des Browserkerns mit `node --test tests/viewer.test.cjs`.
+Für neue kritische Messreihen benötigt der C99-Kern GCC oder Clang. `--workers` steuert die Anzahl parallel laufender Ketten. Vollständig gespeicherte Ketten werden beim erneuten Aufruf wiederverwendet.
+
+~~~sh
+python critical_study.py --workers 8
+python archive_series.py
+python exact_torus.py
+python critical_study.py --workers 8 --warmup 16384 --seed 19438151 --output results/repeat
+python scaling_fit.py --input results/repeat/critical_replicas.csv --output results/repeat/critical_fit.json
+python archive_series.py --results results/repeat
+python exact_torus.py --input results/repeat/critical_diagnostics.csv --output results/repeat/critical_energy_check.csv
+~~~
+
+Eine einzelne Feldmessung startet mit `python main.py --size 16 --temperature 2.3 --field 0.1`. Den Temperaturscan erzeugt `python study.py --workers 4`, die Animation `python render_domains.py` und den 4×4-Vergleich `python validate.py`. Die Tests laufen mit `python -m unittest discover -s tests` und `node --test tests/viewer.test.cjs`.

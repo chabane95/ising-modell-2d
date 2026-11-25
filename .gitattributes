@@ -4,4 +4,6 @@
 *.png binary
 *.gif binary
 *.zip binary
+*.npz binary
+native/*.c text eol=lf
 assets/*.svg text eol=lf whitespace=-blank-at-eol linguist-generated=true

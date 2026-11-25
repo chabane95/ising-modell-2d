@@ -1,0 +1,46 @@
+{
+  "T": 2.269185314213022,
+  "J": 1,
+  "h": 0,
+  "master_seed": 19438151,
+  "warmup": 16384,
+  "samples": 32768,
+  "stride": 1,
+  "source_sha256_lf": {
+    "native_wolff.py": "c64f639c915c21ca9b540000b3bdbf4385d23f6bcefdd3c1847b68e68bdb3a72",
+    "critical_study.py": "aa08b0397e0db8698e3d38f6e094f736c30cfc41f19c5c6fa4451fb657fdcb97",
+    "native/wolff.c": "831e45988bc8349edaca4fa88d6fd0785405c7e41a17d48bccc68430dc6621cd"
+  },
+  "numpy_version": "2.3.5",
+  "replicas": 24,
+  "sizes": [
+    8,
+    12,
+    16,
+    24,
+    32,
+    48,
+    64,
+    96,
+    128,
+    192,
+    256
+  ],
+  "python_version": "3.12.14",
+  "native_binary_sha256": "ef5b50b8424518c64a1bf5136ba9e699e749c7983ce0d78b45a23454151ca932",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "prng": "xoshiro256++ 1.0, SplitMix64 seed expansion",
+  "boundary": "square torus; nearest neighbours",
+  "update_unit": "one Wolff single-cluster flip",
+  "initial": "even replica: independent random spins; odd replica: all +1",
+  "rng_seed": "uint64 from SeedSequence([master_seed,L,replica]).generate_state(1,dtype=uint64)",
+  "samples_definition": "one measurement per cluster flip after the discarded updates",
+  "cache_key": "338d6ae3abe001da431b2a1742acffdf2d7e3ae1fd300fc714f630ce264f23a5",
+  "cache_fields": "E, M are extensive integer time series; mean_cluster is over the retained flips",
+  "diagnostics": "e=E/N, abs_m=|M|/N. Means across chains; equal-weight ordered/random means and within-start replica SE. Hot-minus-cold is random minus ordered. Late-minus-early is paired within a chain. Cluster-size identity uses paired replica differences.",
+  "autocorrelation": "Geyer initial monotone sequence, chain-centered autocovariances pooled across replicas; tau in cluster updates. ESS=replicas*samples/(2*tau). Resolution requires a truncation and samples >= 50*tau.",
+  "sha256": {
+    "critical_replicas.csv": "8fb4c41eabdb8909a83167a9167aa1b320c957efcf2c1d5f75d641f7c812a8d1",
+    "critical_diagnostics.csv": "c0df1308d2469448f965e6c36cb14eb8ecf1c4682ecdaca877a27cd224fe1388"
+  }
+}

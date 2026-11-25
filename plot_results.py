@@ -1,13 +1,14 @@
-"""Render the zero-field Ising study from its archived CSV (PNG and SVG)."""
+"""Render the temperature scan and the critical-size study as PNG and SVG."""
 
 import argparse
+import json
 from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from matplotlib.ticker import AutoMinorLocator, FixedLocator, FuncFormatter, NullFormatter
+from matplotlib.ticker import AutoMinorLocator, FixedLocator, FuncFormatter, MaxNLocator, NullFormatter
 import numpy as np
 
 from study import CRITICAL_T
@@ -110,75 +111,162 @@ def thermodynamics(groups):
     return fig
 
 
-def scaling(groups):
-    fig, (left, right) = plt.subplots(1, 2, figsize=(7.9, 3.45))
-    fig.subplots_adjust(left=0.10, right=0.98, bottom=0.19, top=0.775, wspace=0.35)
-    configure_axes(left, "(a)  Skalierung um $T_c$", r"$L^{1/8}\langle |m| \rangle$")
+def fitted_magnetization(length, fit, reference_size):
+    relative = np.asarray(length, dtype=float) / reference_size
+    correction = 1 + fit["b"] * relative ** -fit["omega"] if fit["omega"] is not None else 1
+    return fit["A"] * relative ** -fit["x"] * correction
+
+
+def size_axis(ax, sizes):
+    """Label powers of two, retaining the other simulated sizes as minor ticks."""
+    lower, upper = min(sizes), max(sizes)
+    ax.set_xscale("log", base=2)
+    ax.set_xlim(lower / 1.14, upper * 1.14)
+    powers = 2.0 ** np.arange(np.ceil(np.log2(lower)), np.floor(np.log2(upper)) + 1)
+    ax.xaxis.set_major_locator(FixedLocator(powers))
+    ax.xaxis.set_minor_locator(FixedLocator(sizes))
+    ax.xaxis.set_major_formatter(FuncFormatter(comma))
+    ax.xaxis.set_minor_formatter(NullFormatter())
+
+
+def scaling(groups, critical):
+    fig = plt.figure(figsize=(7.9, 3.8))
+    columns = fig.add_gridspec(1, 2, left=0.10, right=0.985, bottom=0.16, top=0.90, wspace=0.34)
+    left = fig.add_subplot(columns[0])
+    right_column = columns[1].subgridspec(2, 1, height_ratios=(3, 1), hspace=0.09)
+    right = fig.add_subplot(right_column[0])
+    residuals = fig.add_subplot(right_column[1], sharex=right)
+    configure_axes(left, "(a)  Kollaps um $T_c$", r"$L^{1/8}\langle |m| \rangle$")
     configure_axes(right, "(b)  Magnetisierung bei $T_c$", r"$\langle |m| \rangle_{T_c}$")
     left.set_xlabel(r"$L(T-T_c)/T_c$")
     left.axvline(0, **CRITICAL)
-    right.set_xscale("log")
-    right.set_yscale("log")
-    right.set_xlabel("Gittergröße $L$")
-    sizes, critical_m = [], []
     for size, rows, style in groups:
         x = size * (rows["T"] - CRITICAL_T) / CRITICAL_T
         nearby = np.abs(x) <= 1.65
         factor = size ** 0.125
         measurement(left, x[nearby], rows["abs_m"][nearby] * factor,
                     rows["abs_m_se"][nearby] * factor, style)
-        critical_rows = rows[np.isclose(rows["T"], CRITICAL_T, rtol=0, atol=1e-12)]
-        if len(critical_rows) != 1:
-            raise ValueError(f"Expected exactly one critical-temperature measurement for L={size}")
-        row = critical_rows[0]
-        measurement(right, size, row["abs_m"], row["abs_m_se"], style, connect=False)
-        sizes.append(size)
-        critical_m.append(row["abs_m"])
     left.set_xlim(-1.7, 1.7)
     left.set_xticks([-1.5, -1.0, -0.5, 0, 0.5, 1.0, 1.5])
+    left.legend(handles=size_legend(groups), loc="lower left", handlelength=1.9)
 
-    # Show the predicted slope, fixing only the amplitude at the middle size.
-    anchor = len(sizes) // 2
-    xref = np.geomspace(sizes[0] / 1.1, sizes[-1] * 1.1, 100)
-    ref = critical_m[anchor] * (xref / sizes[anchor]) ** (-0.125)
-    right.plot(xref, ref, **THEORY)
-    right.set_xlim(xref[0], xref[-1])
-    right.xaxis.set_major_locator(FixedLocator(sizes))
-    right.xaxis.set_major_formatter(FuncFormatter(comma))
-    right.xaxis.set_minor_formatter(NullFormatter())
-    # Place readable decimal labels within this narrow log interval.
+    primary = critical["primary"]
+    sizes = [row["L"] for row in critical["sizes"]]
+    size_axis(right, sizes)
+    right.set_yscale("log")
+    right.tick_params(labelbottom=False)
+    for row in critical["sizes"]:
+        style = STYLES[0] if row["L"] in primary["sizes"] else ("#737373", "s")
+        measurement(right, row["L"], row["abs_m"], row["abs_m_se"], style, connect=False)
+    grid = np.geomspace(primary["l_min"], primary["l_max"], 256)
+    fit_line, = right.plot(grid, fitted_magnetization(grid, primary, critical["L_ref"]),
+                           color=STYLES[1][0], linewidth=1.65, zorder=2,
+                           label=rf"Fit ab $L={primary['l_min']}$")
+    right.legend(handles=[fit_line], loc="upper right")
+    # Use decimal labels for magnetization despite the logarithmic axes.
     lo, hi = right.get_ylim()
-    decade = 10 ** np.floor(np.log10(hi - lo))
-    step = decade / 4 if (hi - lo) < 1.5 * decade else decade / 2
-    ticks = np.arange(np.ceil(lo / step), np.floor(hi / step) + 1) * step
-    right.yaxis.set_major_locator(FixedLocator(ticks))
+    ticks = MaxNLocator(nbins=6, steps=(1, 2, 2.5, 5, 10)).tick_values(lo, hi)
+    right.yaxis.set_major_locator(FixedLocator(ticks[(ticks >= lo) & (ticks <= hi)]))
     right.yaxis.set_major_formatter(FuncFormatter(comma))
     right.yaxis.set_minor_formatter(NullFormatter())
-    add_key(fig, size_legend(groups) + [
-        Line2D([], [], label=rf"$L^{{-1/8}}$, normiert bei $L={sizes[anchor]}$", **THEORY),
-    ])
+    residuals.axhline(0, **CRITICAL)
+    residuals.plot(primary["sizes"], primary["weighted_residuals"], "o", color=STYLES[1][0],
+                   markerfacecolor="white", markersize=3.7, markeredgewidth=1)
+    extent = max(2, np.ceil(max(np.abs(primary["weighted_residuals"]))))
+    residuals.set_yticks([-extent, 0, extent])
+    residuals.set_ylim(-1.2 * extent, 1.2 * extent)
+    residuals.set_xlabel("Gittergröße $L$")
+    residuals.set_ylabel(r"$r_i/\sigma_i$")
+    return fig
+
+
+def critical_fit(critical):
+    fig, (left, right) = plt.subplots(1, 2, figsize=(7.9, 3.65))
+    fig.subplots_adjust(left=0.10, right=0.985, bottom=0.17, top=0.78, wspace=0.34)
+    configure_axes(left, "(a)  Verdopplung des Gitters", r"$x_{\mathrm{eff}}(L,2L)$")
+    configure_axes(right, "(b)  Stabilität des Fits", r"$x=\beta/\nu$")
+    for ax in (left, right):
+        ax.axhline(1 / 8, **THEORY)
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+    primary = critical["primary"]
+    pairs = critical["effective"]
+    starts = np.array([pair["L1"] for pair in pairs])
+    size_axis(left, starts)
+    left.set_xlabel("Gittergröße $L$")
+    measurement(left, starts, [p["x"] for p in pairs], [p["x_se"] for p in pairs],
+                STYLES[0], connect=False)
+
+    # Only draw size pairs for which both sizes lie in the primary fit window.
+    lo, hi = primary["l_min"], primary["l_max"] / 2
+    if lo < hi:
+        grid = np.geomspace(lo, hi, 256)
+        m = fitted_magnetization(grid, primary, critical["L_ref"])
+        m2 = fitted_magnetization(2 * grid, primary, critical["L_ref"])
+        left.plot(grid, np.log(m / m2) / np.log(2), color=STYLES[1][0], linewidth=1.4)
+
+    model_styles = {
+        None: (STYLES[0][0], "o", "ohne Korrektur"),
+        1.0: ("#598477", "D", r"$\omega=1$"),
+        1.75: (STYLES[2][0], "^", r"$\omega=7/4$"),
+        2.0: (STYLES[1][0], "s", r"$\omega=2$"),
+    }
+    cuts = sorted({fit["l_min"] for fit in critical["fits"]})
+    model_handles = []
+    for offset, (omega, (color, marker, label)) in zip(np.linspace(-0.24, 0.24, 4), model_styles.items()):
+        rows = [fit for fit in critical["fits"] if fit["omega"] == omega]
+        if not rows:
+            continue
+        x = [cuts.index(row["l_min"]) + offset for row in rows]
+        measurement(right, x, [row["x"] for row in rows], [row["x_se"] for row in rows],
+                    (color, marker), connect=False)
+        if omega == primary["omega"]:
+            right.plot(cuts.index(primary["l_min"]) + offset, primary["x"], marker=marker,
+                       color=color, linestyle="none", markersize=4.2, zorder=4)
+        model_handles.append(Line2D([], [], color=color, marker=marker, markersize=4.5,
+                                    markerfacecolor="white", linestyle="none", label=label))
+    right.set_xticks(range(len(cuts)), labels=[str(cut) for cut in cuts])
+    right.set_xlim(-0.65, len(cuts) - 0.35)
+    right.xaxis.set_minor_locator(FixedLocator([]))
+    right.set_xlabel(r"Kleinste Gittergröße $L_{\mathrm{min}}$")
+
+    left.legend(handles=[Line2D([], [], color=STYLES[1][0], linewidth=1.4, label="Hauptfit"),
+                         Line2D([], [], label=r"$x=1/8$", **THEORY)],
+                loc="lower left", bbox_to_anchor=(-0.02, 1.16), ncol=2, borderaxespad=0)
+    right.legend(handles=model_handles, loc="lower left", bbox_to_anchor=(-0.02, 1.15),
+                 ncol=2, columnspacing=0.9, handlelength=1.0, borderaxespad=0)
     return fig
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, default=ROOT / "results" / "temperature_scan.csv")
+    parser.add_argument("--critical-fit", type=Path, default=ROOT / "results" / "critical_fit.json")
+    parser.add_argument("--figure", nargs="+", choices=("thermodynamics", "scaling", "critical_fit"),
+                        default=("thermodynamics", "scaling", "critical_fit"))
     parser.add_argument("--output", type=Path, default=ROOT / "assets")
     args = parser.parse_args()
     fields = ("L", "T", "abs_m", "cv", "chi_abs", "binder")
     fields += tuple(field + "_se" for field in fields[2:])
-    data = np.genfromtxt(args.input, delimiter=",", names=True, usecols=fields,
-                         dtype=None, encoding="utf-8", ndmin=1)
     groups = []
-    for index, size in enumerate(np.unique(data["L"])):
-        rows = np.sort(data[data["L"] == size], order="T")
-        groups.append((size, rows, STYLES[index % len(STYLES)]))
+    if "thermodynamics" in args.figure or "scaling" in args.figure:
+        data = np.genfromtxt(args.input, delimiter=",", names=True, usecols=fields,
+                             dtype=None, encoding="utf-8", ndmin=1)
+        for index, size in enumerate(np.unique(data["L"])):
+            rows = np.sort(data[data["L"] == size], order="T")
+            groups.append((size, rows, STYLES[index % len(STYLES)]))
+    if "scaling" in args.figure or "critical_fit" in args.figure:
+        critical = json.loads(args.critical_fit.read_text(encoding="utf-8"))
     args.output.mkdir(parents=True, exist_ok=True)
     with plt.rc_context(PLOT_STYLE):
-        for render in (thermodynamics, scaling):
-            fig = render(groups)
-            fig.savefig(args.output / f"{render.__name__}.svg", metadata={"Date": None})
-            fig.savefig(args.output / f"{render.__name__}.png", dpi=300, facecolor="white")
+        for name in args.figure:
+            if name == "thermodynamics":
+                fig = thermodynamics(groups)
+            elif name == "scaling":
+                fig = scaling(groups, critical)
+            else:
+                fig = critical_fit(critical)
+            fig.savefig(args.output / f"{name}.svg", metadata={"Date": None})
+            fig.savefig(args.output / f"{name}.png", dpi=300, facecolor="white")
             plt.close(fig)
 
 
