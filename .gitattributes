@@ -1,0 +1,7 @@
+* text=auto
+*.csv text eol=lf
+*.json text eol=lf
+*.png binary
+*.gif binary
+*.zip binary
+assets/*.svg text eol=lf whitespace=-blank-at-eol linguist-generated=true

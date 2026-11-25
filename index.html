@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>2D-Ising-Modell</title>
+  <style>
+    :root {
+      --ink: #172d35; --paper: #fafaf7; --muted: #52666b; --rule: #cdd5d1;
+      --up: #dae4d9; --down: #263f4d; --accent: #216353;
+      background: var(--paper); color: var(--ink);
+      font: 15px/1.4 'DM Sans','Segoe UI',system-ui,sans-serif;
+      font-variant-numeric: tabular-nums;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { width: min(960px,92%); margin: 0 auto; padding: clamp(20px,5vh,54px) 0 32px; }
+    h1 { margin: 0; font: 400 clamp(31px,4.5vw,46px)/1.17 'STIX Two Text',Georgia,serif; letter-spacing: -.034em; }
+    header { border-bottom: 1px solid var(--rule); padding-bottom: 13px; margin-bottom: clamp(16px,3vw,30px); }
+    .experiment { display: grid; grid-template-columns: minmax(0,1.48fr) minmax(235px,.87fr); gap: clamp(24px,6vw,70px); align-items: start; }
+    figure { min-width: 0; margin: 0; }
+    canvas { width: 100%; height: auto; aspect-ratio: 1; display: block; background: var(--down); border: 1px solid var(--down); image-rendering: pixelated; }
+    figcaption, .actions, .legend, .thermometer, .measure { display: flex; align-items: center; }
+    figcaption { justify-content: space-between; margin: 9px 0 15px; color: var(--muted); font-size: 13px; }
+    .legend { gap: 15px; }
+    .legend span { display: inline-flex; gap: 5px; align-items: center; }
+    .swatch { width: 12px; height: 12px; background: var(--up); border: 1px solid #a6b3a8; }
+    .swatch.down { background: var(--down); border-color: var(--down); }
+    button, input, select { font: inherit; color: inherit; }
+    button, select, input[type=number] { border: 1px solid #aab7b2; border-radius: 3px; background: white; min-height: 35px; padding: 5px 9px; }
+    button, select, summary, input[type=range] { cursor: pointer; }
+    button:hover { border-color: var(--accent); }
+    button.primary { background: var(--ink); color: white; border-color: var(--ink); min-width: 92px; }
+    button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid #ab7028; outline-offset: 3px; }
+    .actions { gap: 8px; flex-wrap: wrap; }
+    .counter { margin-left: auto; color: var(--muted); font-size: 13px; }
+    .counter output { font-family: ui-monospace,Consolas,monospace; }
+    .thermometer, .measure { justify-content: space-between; gap: 10px; }
+    .thermometer { align-items: baseline; }
+    .thermometer label { font-size: 16px; }
+    .thermometer output { font: 400 32px/1.2 'STIX Two Text',Georgia,serif; }
+    input[type=range] { width: 100%; height: 28px; margin: 8px 0 0; accent-color: var(--accent); }
+    .marks { display: flex; justify-content: space-between; position: relative; font-size: 12px; color: var(--muted); }
+    .critical { position: absolute; top: 0; left: 45.38%; transform: translateX(-50%); white-space: nowrap; }
+    .measures { margin: 25px 0; border-top: 1px solid var(--rule); }
+    .measure { padding: 11px 0; margin: 0; border-bottom: 1px solid var(--rule); }
+    .measure dt { color: var(--muted); }
+    .measure dd { margin: 0; font: 18px/1.3 ui-monospace,Consolas,monospace; }
+    summary { width: fit-content; padding: 7px 0; font-weight: 550; }
+    fieldset { border: 0; padding: 0; margin: 0; }
+    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 12px; margin: 9px 0 13px; }
+    .fields label { display: grid; gap: 3px; color: var(--muted); font-size: 13px; }
+    .fields input, .fields select { width: 100%; min-width: 0; }
+    .method, .method p { color: var(--muted); font-size: 13px; }
+    .method { margin-top: 12px; }
+    .method summary { font-size: 14px; font-weight: normal; }
+    .method p { margin: 6px 0; }
+    .status { color: var(--muted); font-size: 13px; margin: 0; }
+    .status:not(:empty) { margin-top: 8px; }
+    @media(min-width: 700px) and (max-height: 800px) { main { width: min(91vw,calc(100vh + 115px),960px); } }
+    @media(max-width: 690px) {
+      main { width: min(92%,500px); padding-top: 18px; }
+      .experiment { grid-template-columns: 1fr; gap: 23px; }
+      .measures { margin: 19px 0 12px; }
+      figcaption { margin-bottom: 9px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header><h1>2D-Ising-Modell</h1></header>
+    <div class="experiment">
+      <figure>
+        <canvas id="lattice" width="64" height="64" role="img" aria-label="Momentane Spinkonfiguration auf dem quadratischen Gitter"></canvas>
+        <figcaption>
+          <span id="size-readout"></span>
+          <span class="legend" aria-label="Spinfarben"><span><i class="swatch" aria-hidden="true"></i>+1</span><span><i class="swatch down" aria-hidden="true"></i>−1</span></span>
+        </figcaption>
+        <div class="actions">
+          <button type="button" class="primary" id="toggle">Start</button>
+          <button type="button" id="step">+1 Sweep</button>
+          <span class="counter">Sweeps <output id="sweeps">0</output></span>
+        </div>
+      </figure>
+      <section aria-label="Temperatur und Messwerte">
+        <div class="thermometer"><label for="temperature">Temperatur <i>k</i><sub>B</sub><i>T</i>/<i>J</i></label><output id="temperature-value" for="temperature"></output></div>
+        <input type="range" id="temperature" min="0" max="5" step="0.001" value="2.269">
+        <div class="marks" aria-hidden="true"><span>0</span><span class="critical">T<sub>c</sub> ≈ 2,269</span><span>5</span></div>
+        <dl class="measures">
+          <div class="measure"><dt>Energie <i>E</i>/(<i>NJ</i>)</dt><dd id="energy">–</dd></div>
+          <div class="measure"><dt>Magnetisierung <i>M</i>/<i>N</i></dt><dd id="magnetization">–</dd></div>
+        </dl>
+        <details id="settings">
+          <summary>Laufparameter</summary>
+          <form id="setup"><fieldset class="fields">
+            <label>Gitterlänge L<input id="length" type="number" min="2" max="128" step="1" value="64" required></label>
+            <label>Startzustand<select id="initial"><option value="random">Zufällig</option><option value="up">Alle +1</option><option value="down">Alle −1</option></select></label>
+            <label>Seed<input id="seed" type="number" min="0" max="4294967295" step="1" value="42" required></label>
+            <label>Vorlauf (Sweeps)<select id="warmup"><option value="0">0</option><option value="16">16</option><option selected value="64">64</option><option value="256">256</option></select></label>
+          </fieldset><button type="submit">Neu initialisieren</button></form>
+          <p class="status" role="status" id="notice"></p>
+        </details>
+        <details class="method">
+          <summary>Modell und Zeitskala</summary>
+          <p>Periodische Ränder, ferromagnetische Kopplung <i>J</i> &gt; 0, äußeres Feld <i>h</i> = 0. Ein Metropolis-Sweep umfasst <i>L</i>² zufällige Einzelspinversuche mit Zurücklegen.</p>
+          <p>Der Regler ändert die Temperatur der laufenden Konfiguration. Die Anzeigen sind Momentanwerte. Die Uhr zählt Monte-Carlo-Sweeps. <i>T</i><sub>c</sub> gilt für das unendliche Gitter.</p>
+        </details>
+      </section>
+    </div>
+    <noscript>Zum Berechnen der Spinkonfiguration bitte JavaScript aktivieren.</noscript>
+  </main>
+  <script id="ising-kernel">
+    'use strict';
+    // Mulberry32, a reproducible 32-bit generator. Every attempt chooses a site with replacement.
+    function makeRandom(seed) {
+      let state = seed >>> 0;
+      return function random() {
+        state = (state + 0x6D2B79F5) >>> 0;
+        let value = Math.imul(state ^ (state >>> 15), state | 1);
+        value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+        return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    class SpinLattice {
+      constructor(length, seed, start, temperature) {
+        this.length = length;
+        this.count = length * length;
+        this.random = makeRandom(seed);
+        this.spins = new Int8Array(this.count);
+        this.neighbours = new Uint32Array(4 * this.count);
+        for (let y = 0; y < length; ++y) {
+          for (let x = 0; x < length; ++x) {
+            const i = y * length + x;
+            this.spins[i] = start === 'random' ? (this.random() < 0.5 ? -1 : 1) : (start === 'up' ? 1 : -1);
+            this.neighbours[4*i]   = y * length + (x + 1) % length;
+            this.neighbours[4*i+1] = ((y + 1) % length) * length + x;
+            this.neighbours[4*i+2] = y * length + (x + length - 1) % length;
+            this.neighbours[4*i+3] = ((y + length - 1) % length) * length + x;
+          }
+        }
+        this.measure();
+        this.sweeps = 0;
+        this.setTemperature(temperature);
+      }
+
+      measure() {
+        this.energy = 0;
+        this.magnetization = 0;
+        for (let i = 0; i < this.count; ++i) {
+          this.energy -= this.spins[i] * (this.spins[this.neighbours[4*i]] + this.spins[this.neighbours[4*i+1]]);
+          this.magnetization += this.spins[i];
+        }
+      }
+
+      setTemperature(temperature) {
+        this.temperature = temperature;
+        this.accept4 = temperature === 0 ? 0 : Math.exp(-4/temperature);
+        this.accept8 = temperature === 0 ? 0 : Math.exp(-8/temperature);
+      }
+
+      energyChange(i) {
+        const n = this.neighbours, s = this.spins, k = 4*i;
+        return 2*s[i]*(s[n[k]] + s[n[k+1]] + s[n[k+2]] + s[n[k+3]]);
+      }
+
+      sweep() {
+        for (let n = 0; n < this.count; ++n) {
+          const i = Math.floor(this.random() * this.count);
+          const change = this.energyChange(i);
+          if (change <= 0 || this.random() < (change === 4 ? this.accept4 : this.accept8)) {
+            this.magnetization -= 2*this.spins[i];
+            this.spins[i] = -this.spins[i];
+            this.energy += change;
+          }
+        }
+        ++this.sweeps;
+      }
+    }
+  </script>
+  <script>
+    'use strict';
+    const el = id => document.getElementById(id);
+    const canvas = el('lattice');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const formatter = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+    const integers = new Intl.NumberFormat('de-DE');
+    const rgb = ['#263f4d', '#dae4d9'].map(hex => [1,3,5].map(i => parseInt(hex.slice(i,i+2),16)));
+    let run, pixels, active = false, lastTime = null, accumulated = 0, animation;
+
+    function display() {
+      for (let i = 0; i < run.count; ++i) {
+        const colour = rgb[run.spins[i] === 1 ? 1 : 0];
+        const p = i*4;
+        pixels.data[p] = colour[0]; pixels.data[p+1] = colour[1];
+        pixels.data[p+2] = colour[2]; pixels.data[p+3] = 255;
+      }
+      ctx.putImageData(pixels, 0, 0);
+      el('energy').textContent = formatter.format(run.energy/run.count);
+      el('magnetization').textContent = formatter.format(run.magnetization/run.count);
+      el('sweeps').textContent = integers.format(run.sweeps);
+    }
+
+    function frame(now) {
+      if (!active || document.hidden) return;
+      if (lastTime !== null) accumulated += Math.min(now-lastTime, 150) * 0.025;
+      lastTime = now;
+      const steps = Math.floor(accumulated);
+      if (steps > 0) {
+        accumulated -= steps;
+        for (let i = 0; i < steps; ++i) run.sweep();
+        display();
+      }
+      animation = requestAnimationFrame(frame);
+    }
+
+    function play(value) {
+      active = value; lastTime = null; accumulated = 0;
+      cancelAnimationFrame(animation);
+      el('toggle').textContent = value ? 'Pause' : 'Start';
+      if (active && !document.hidden) animation = requestAnimationFrame(frame);
+    }
+
+    function reset() {
+      play(false);
+      const length = el('length').valueAsNumber;
+      run = new SpinLattice(length, el('seed').valueAsNumber, el('initial').value, el('temperature').valueAsNumber);
+      for (let i = 0; i < Number(el('warmup').value); ++i) run.sweep();
+      canvas.width = length; canvas.height = length;
+      pixels = ctx.createImageData(length, length);
+      el('temperature-value').textContent = formatter.format(run.temperature);
+      el('size-readout').textContent = length + ' × ' + length;
+      display();
+    }
+
+    el('setup').addEventListener('submit', event => {
+      event.preventDefault(); reset(); el('notice').textContent = 'Gitter neu initialisiert.';
+    });
+    el('setup').addEventListener('input', () => { el('notice').textContent = ''; });
+    el('temperature').addEventListener('input', event => {
+      run.setTemperature(event.target.valueAsNumber);
+      el('temperature-value').textContent = formatter.format(run.temperature);
+    });
+    el('toggle').addEventListener('click', () => play(!active));
+    el('step').addEventListener('click', () => { play(false); run.sweep(); display(); });
+    document.addEventListener('visibilitychange', () => { if (active) play(true); });
+    reset();
+    play(!matchMedia('(prefers-reduced-motion: reduce)').matches);
+  </script>
+</body>
+</html>

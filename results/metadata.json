@@ -1,0 +1,49 @@
+{
+  "replicas": 8,
+  "warmup": 768,
+  "samples": 3072,
+  "stride": 1,
+  "seed": 20261125,
+  "algorithm": "wolff",
+  "J": 1.0,
+  "h": 0.0,
+  "sizes": [
+    8,
+    16,
+    24
+  ],
+  "temperatures": [
+    1.8,
+    2.0,
+    2.12,
+    2.18,
+    2.22,
+    2.269185314213022,
+    2.3,
+    2.34,
+    2.4,
+    2.55,
+    2.8,
+    3.2
+  ],
+  "update_unit": "one Wolff cluster flip; store every stride flips after warmup flips",
+  "initialization": "even replica indices random independent spins; odd indices all +1",
+  "seeds": "uint64 from NumPy SeedSequence([seed,L,float64(T).view(uint64),replica]).generate_state(1,dtype=uint64)",
+  "uncertainties": "One standard error from leave-one-replica-out jackknife of the pooled-moment estimators.",
+  "observables": "N=L^2. e=<E>/N; abs_m=<|M|>/N; cv=Var(E)/(NT^2); chi=Var(M)/(NT); chi_abs=Var(|M|)/(NT); binder=1-<M^4>/(3<M^2>^2). k_B=1.",
+  "cluster_check": "At h=0, chi_cluster=<size of seed cluster>/T. chi_cluster_minus_sym subtracts <M^2>/(N*T) using <M>=0 by symmetry. Its SE uses paired replica differences.",
+  "autocorrelation": "Within-replica centered, biased FFT autocovariances pooled over replicas; Geyer initial monotone sequence. tau in retained measurements; ESS=replicas*samples/(2*tau). Reliable flag requires a truncation point and samples >= 50*tau; not an equilibrium test. nan denotes an undefined estimate.",
+  "equilibration_check": "Difference of the energy-per-spin means for the random and ordered starts; SE from independent within-group replica means. This checks a single observable.",
+  "critical_scaling": {
+    "T": 2.269185314213022,
+    "sizes": [
+      8,
+      24
+    ],
+    "beta_over_nu_effective": 0.1190961976283146,
+    "monte_carlo_se": 0.005069419856077511
+  },
+  "python_version": "3.12.14",
+  "numpy_version": "2.3.5",
+  "csv_sha256": "7ee719b5e811a821eb9c906861fdd3685daf24493ab5775ea549ebd3d39d8cc1"
+}
